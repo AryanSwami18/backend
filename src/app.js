@@ -25,7 +25,7 @@ app.use(express.static(
 ));
 
 
-app.use(cookieParser());
+app.use(cookieParser()); 
 
 
 export {app};
