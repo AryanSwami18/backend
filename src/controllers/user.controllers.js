@@ -4,6 +4,22 @@ import {User} from '../models/user.models.js';
 import {uploadOnCloudinary} from '../utils/cloudinary.js';
 import { ApiResponse } from '../utils/ApiResponse.js';
 
+const generateAccessAndRefreshToken = async(userId)=>{
+    try{
+        const user = await User.findById(userId);
+        const accessToken = user.generateAccessToken();
+        const refreshToken = user.generateRefreshToken();
+
+        user.refreshToken = refreshToken;
+        await user.save({validateBeforeSave:false});
+
+        return {accessToken,refreshToken};
+
+    }catch(error){
+        throw new ApiError(500,"Error While Genrating Token");
+    }
+}
+
 const registerUser = asyncHandler( async(req,res)=>{
     //get user details from frontend
     const {fullName,username,email,password} = req.body;
@@ -82,7 +98,49 @@ if (
 
 });
 
+const loginUser = asyncHandler(async(req,res)=>{
+    //req-data
+    const {email,password} = req.body;
+    //email based
+    if(!email || email === ''){
+        throw new ApiError(400,"Email and password is required");
+    }
+    //check user there with email
+    const user = await User.findOne({email});
+
+    if(!user){
+        throw new ApiError(404,"User Does Not Exists");
+    }
+    //check the password
+
+    const isPasswordValid = await user.isPasswordCorrect(password);
+
+    if(!isPasswordValid){
+        throw new ApiError(401,"The Password is incorrect");
+    }
+    //access token and refresh token 
+    const {accessToken,refreshToken} = await generateAccessAndRefreshToken(user._id);
+    // send secure cookies 
+    const loggedInUser = await User.findById(user._id).select("-password -refreshToken");
+
+    const options = {
+        httpOnly: true,
+        secure:true,
+    }
+
+    return res.status(200).cookie("accessToken",accessToken).cookie("refreshToken",refreshToken).json(new ApiResponse(200,{
+        user:loggedInUser,accessToken,refreshToken
+    },"User Is Logged In"))
+});
+
+
+const logoutUser = asyncHandler(async(req,res)=>{
+
+});
+
+
 
 export {
     registerUser,
+    loginUser,
 };
