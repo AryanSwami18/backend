@@ -128,13 +128,36 @@ const loginUser = asyncHandler(async(req,res)=>{
         secure:true,
     }
 
-    return res.status(200).cookie("accessToken",accessToken).cookie("refreshToken",refreshToken).json(new ApiResponse(200,{
+    return res.status(200).cookie("accessToken",accessToken,options).cookie("refreshToken",refreshToken,options).json(new ApiResponse(200,{
         user:loggedInUser,accessToken,refreshToken
-    },"User Is Logged In"))
+    },"User Is Logged In"));
+
+
 });
 
 
 const logoutUser = asyncHandler(async(req,res)=>{
+    const userId = req.user._id;
+
+        await User.findByIdAndUpdate(userId,{
+            $set:{
+                refreshToken:undefined
+            },
+        },{
+            new:true
+        }
+    );
+
+    const options = {
+        httpOnly:true,
+        secure:true
+    }
+
+    return res
+      .status(200)
+      .clearCookie("accessToken", options)
+      .clearCookie("refreshToken", options)
+      .json(new ApiResponse(200,{},"User Logged Out Successfully"));
 
 });
 
@@ -143,4 +166,5 @@ const logoutUser = asyncHandler(async(req,res)=>{
 export {
     registerUser,
     loginUser,
+    logoutUser,
 };
