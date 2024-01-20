@@ -6,25 +6,22 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 import Jwt  from "jsonwebtoken";
 
 
-const generateAccessToken = async (user) => {
+const generateAccessAndRefreshToken = async (userId) => {
   try {
-    const accessToken = await user.generateAccessToken();
-    return accessToken;
+    const user = await User.findById(userId);
+    const accessToken =  await user.generateAccessToken();
+    const refreshToken =  await user.generateRefreshToken();
+
+    user.refreshToken = refreshToken;
+    await user.save({ validateBeforeSave: false });
+
+    return { accessToken, refreshToken };
   } catch (error) {
-    throw new ApiError(500, "Error While Generating Access Token");
+    throw new ApiError(500, "Error While Genrating Token");
   }
 };
 
-const generateRefreshToken = async (user) => {
-  try {
-    const refreshToken = await user.generateRefreshToken();
-    user.refreshToken = refreshToken;
-    await user.save({ validateBeforeSave: false });
-    return refreshToken;
-  } catch (error) {
-    throw new ApiError(500, "Error While Generating Refresh Token");
-  }
-};
+
 const registerUser = asyncHandler(async (req, res) => {
   //get user details from frontend
   const { fullName, username, email, password } = req.body;
@@ -120,8 +117,7 @@ const loginUser = asyncHandler(async (req, res) => {
     throw new ApiError(401, "The Password is incorrect");
   }
   //access token and refresh token
-  const accessToken = generateAccessToken(user._id);
-  const refreshToken  = generateRefreshToken(user._id);
+  const {accessToken,refreshToken} = await generateAccessAndRefreshToken(user._id);
   // send secure cookies
   const loggedInUser = await User.findById(user._id).select(
     "-password -refreshToken"
@@ -203,8 +199,7 @@ const refreshAccessToken = asyncHandler(async(req,res)=>{
       }
   
   
-      const accessToken = await generateAccessToken(user._id);
-      const refreshToken = await generateRefreshToken(user._id);
+      const {accessToken,refreshToken} = await generateAccessAndRefreshToken(user._id);
   
       return res.status(200).cookie("accessToken",accessToken,options).cookie("refreshToken",refreshToken,options).json(
         new ApiResponse(200,accessToken,user.refreshToken,"Access Token Refreshed")
