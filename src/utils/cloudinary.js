@@ -36,9 +36,9 @@ const deleteFromCloudinary = async(url)=>{
   
     const imageName = imageNameWithExtension.split(".")[0];
   
-  cloudinary.uploader.destroy(imageName);
+    cloudinary.uploader.destroy(imageName);
   } catch (error) {
-    throw new ApiError(500,"Cannot Delete The Image");
+    return null;
   }
 };
 
