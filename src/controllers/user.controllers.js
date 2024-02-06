@@ -4,7 +4,7 @@ import { User } from "../models/user.models.js";
 import { deleteFromCloudinary, uploadOnCloudinary } from "../utils/cloudinary.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import Jwt from "jsonwebtoken";
-import { Mongoose } from "mongoose";
+import { mongoose } from "mongoose";
 import fs, { appendFile } from "fs";
 
 const generateAccessAndRefreshToken = async (userId) => {
@@ -89,7 +89,7 @@ const registerUser = asyncHandler(async (req, res) => {
 
   if (!createdUser) {
     deleteFromCloudinary(avatar.url)
-    deleteFromCloudinary(coverImage.url)
+    deleteFromCloudinary(coverImage.url);
     throw new ApiError(500, "Something Went Wrong While Creating the User");
   }
 
@@ -155,8 +155,8 @@ const logoutUser = asyncHandler(async (req, res) => {
   await User.findByIdAndUpdate(
     userId,
     {
-      $set: {
-        refreshToken: undefined,
+      $unset: {
+        refreshToken: 1,
       },
     },
     {
@@ -226,9 +226,7 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
 });
 
 const changeUserPassword = asyncHandler(async (req, res) => {
-  const { oldPassword, newPassword, confirmPassoword } = req.body;
-
-  try {
+  const { oldPassword, newPassword, confirmPassword } = req.body;
     const user = await User.findById(req.user?._id);
 
     if (!user) {
@@ -241,7 +239,7 @@ const changeUserPassword = asyncHandler(async (req, res) => {
       throw new ApiError(401, "Invalid Old Password");
     }
 
-    if (newPassword === confirmPassoword) {
+    if (newPassword === confirmPassword) {
       user.password = newPassword;
       await user.save({ validateBeforeSave: false });
     } else {
@@ -251,19 +249,16 @@ const changeUserPassword = asyncHandler(async (req, res) => {
     return res
       .status(200)
       .json(new ApiResponse(200, {}, "Password has been reset"));
-  } catch (error) {
-    throw new ApiError(
-      401,
-      error?.message || "Cannot Chnage The Password Try Again Later"
-    );
-  }
+   
+  
 });
 
 const getCurrentUser = asyncHandler(async (req, res) => {
   try {
+    const user = req.user;
     return res
       .status(200)
-      .json(ApiResponse(200, req.user, "User fetched Succesfully"));
+      .json(new ApiResponse(200, {user}, "User fetched Succesfully"));
   } catch (error) {
     throw new ApiError(501, error?.message || "Cannot fetch User");
   }
@@ -413,8 +408,8 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
           $size: "$subscribedTo",
         },
         isSubscribed: {
-          $condition: {
-            $if: { $in: [req?.user._id, "$subscribers.subscriber"] },
+          $cond: {
+            if: { $in: [req?.user._id, "$subscribers.subscriber"] },
             then: true,
             else: false,
           },
@@ -456,7 +451,7 @@ const getUserWatchHistory = asyncHandler(async (req, res) => {
   const user = await User.aggregate([
     {
       $match: {
-        _id: new Mongoose.Types.ObjectId(req.user?._id),
+        _id: new mongoose.Types.ObjectId(req.user._id),
       },
     },
     {
